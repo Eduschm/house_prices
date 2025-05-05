@@ -1,0 +1,159 @@
+# -*- coding: utf-8 -*-
+import joblib
+import os
+from sklearn.model_selection import GridSearchCV, KFold
+from sklearn.linear_model import Ridge
+from sklearn.ensemble import RandomForestRegressor, StackingRegressor
+from xgboost import XGBRegressor
+
+def train(X_train_data, y_train_data, use_preprocessed=True):
+    """
+    Train models with consistent preprocessing
+    
+    Parameters:
+    -----------
+    X_train_data : DataFrame or ndarray
+        Training data features, either raw or preprocessed 
+    y_train_data : Series or ndarray
+        Target variable
+    use_preprocessed : bool
+        Whether X_train_data is already preprocessed (True) or needs preprocessing (False)
+    
+    Returns:
+    --------
+    best_models : dict
+        Dictionary of fitted best models
+    cv_results : dict
+        Cross-validation results
+    """
+    # Ensure models directory exists
+    os.makedirs('models', exist_ok=True)
+    
+    # Define models
+    models = {
+        'XGBRegressor': XGBRegressor(
+            n_estimators=500,
+            max_depth=4,
+            learning_rate=0.1,
+            subsample=0.6,
+            colsample_bytree=0.6,
+            gamma=0,
+            min_child_weight=1,
+            objective='reg:squarederror',
+            n_jobs=1,
+            random_state=42
+        ),
+        'RandomForest': RandomForestRegressor(
+            n_estimators=100,
+            max_depth=None,
+            max_features='sqrt',
+            min_samples_split=2,
+            min_samples_leaf=1,
+            n_jobs=-1,
+            random_state=42
+        ),
+        'Stacking': StackingRegressor(
+            estimators=[
+                ('xgb', XGBRegressor(
+                    n_estimators=500,
+                    max_depth=4,
+                    learning_rate=0.1,
+                    subsample=0.6,
+                    colsample_bytree=0.6,
+                    gamma=0,
+                    min_child_weight=1,
+                    objective='reg:squarederror',
+                    n_jobs=1,
+                    random_state=42
+                )),
+                ('rf', RandomForestRegressor(
+                    n_estimators=100,
+                    max_depth=None,
+                    max_features='sqrt',
+                    min_samples_split=2,
+                    min_samples_leaf=1,
+                    n_jobs=-1,
+                    random_state=42
+                ))
+            ],
+            final_estimator=Ridge(),
+            cv=5,
+            passthrough=True,
+            n_jobs=-1
+        )
+    }
+    
+    # Parameter grids for GridSearchCV
+    param_grids = {
+        'RandomForest': {
+            'n_estimators': [100, 200, 300],
+            'max_depth': [None, 20, 30, 40],
+            'max_features': ['sqrt', 'log2'],
+            'min_samples_split': [2, 4, 6],
+            'min_samples_leaf': [1, 2, 4]
+        },
+        'XGBRegressor': {
+            'n_estimators': [400, 500, 600],
+            'max_depth': [4, 5, 6],
+            'learning_rate': [0.08, 0.1, 0.12],
+            'subsample': [0.6, 0.7, 0.8],
+            'colsample_bytree': [0.6, 0.7, 0.8],
+            'gamma': [0, 0.1, 0.2],
+            'min_child_weight': [1, 2, 3]
+        },
+        'Stacking': {}  # No hyperparameter tuning for stacking
+    }
+    
+    # Store trained models and results
+    best_models = {}
+    cv_results = {}
+    
+    # Setup k-fold cross validation
+    kf = KFold(n_splits=5, shuffle=True, random_state=42)
+    
+    # Train each model
+    for name, model in models.items():
+        print(f"Training {name}...")
+        
+        param_grid = param_grids.get(name, {})
+        
+        if param_grid:
+            grid = GridSearchCV(
+                estimator=model,
+                param_grid=param_grid,
+                cv=kf,
+                verbose=1,
+                n_jobs=-1,
+                scoring='neg_mean_squared_error'
+            )
+            
+            grid.fit(X_train_data, y_train_data)
+            final_model = grid.best_estimator_
+            
+            cv_results[name] = {
+                'best_params': grid.best_params_,
+                'best_score_cv': grid.best_score_,
+                'all_cv_results': grid.cv_results_
+            }
+            
+            print(f"Best parameters for {name}: {grid.best_params_}")
+            print(f"Best cross-validation score: {grid.best_score_:.4f}")
+        else:
+            model.fit(X_train_data, y_train_data)
+            final_model = model
+            
+            cv_results[name] = {
+                'best_params': None,
+                'best_score_cv': None,
+                'all_cv_results': None
+            }
+            
+            print(f"{name} was trained without hyperparameter tuning.")
+        
+        best_models[name] = final_model
+        
+        # Save the model
+        joblib.dump(final_model, f"models/{name}_best.pkl")
+        print("-" * 50)
+    
+    return best_models, cv_results
