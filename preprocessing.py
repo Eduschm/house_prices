@@ -78,7 +78,7 @@ def preprocess_data(train_df, test_df=None):
         if 'Id' in df_clean.columns:
             columns_to_drop.append('Id')
             
-        df_clean = df_clean.drop(columns_to_drop, axis=1, errors='ignore')
+        #df_clean = df_clean.drop(columns_to_drop, axis=1, errors='ignore')
         
         # Convert categorical columns
         cols_to_convert = ['MSSubClass', 'YrSold', 'MoSold', 'YearBuilt']
@@ -129,9 +129,3 @@ def preprocess_data(train_df, test_df=None):
         return X_train_transformed, y_train, X_test_transformed, feature_names
     
     return X_train_transformed, y_train, None, feature_names
-
-
-# Example usage:
-# train_df = pd.read_csv('data/train.csv')
-# test_df = pd.read_csv('data/test.csv')
-# X_train, y_train, X_test, feature_names = preprocess_data(train_df, test_df)

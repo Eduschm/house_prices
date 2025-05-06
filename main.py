@@ -129,12 +129,12 @@ def main():
                 train_df, test_size=0.2, random_state=42
             )
             # Preprocess both sets of data
-            X_train, y_train, _, feature_names = preprocess_data(train_df)
-            X_test, y_test, _, _ = preprocess_data(holdout_df)
+            X_train, y_train, X_test, feature_names = preprocess_data(train_df, holdout_df)
+            y_test = np.log1p(holdout_df['SalePrice']).values
         else:
             # If test_df has SalePrice, preprocess both
-            X_train, y_train, _, feature_names = preprocess_data(train_df)
-            X_test, y_test, _, _ = preprocess_data(test_df)
+            X_train, y_train, X_test, feature_names = preprocess_data(train_df, test_df)
+            y_test = np.log1p(test_df['SalePrice']).values
         
         # Save preprocessed data for future use
         np.save('data/preprocessed/X_train.npy', X_train)

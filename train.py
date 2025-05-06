@@ -5,6 +5,10 @@ from sklearn.model_selection import GridSearchCV, KFold
 from sklearn.linear_model import Ridge
 from sklearn.ensemble import RandomForestRegressor, StackingRegressor
 from xgboost import XGBRegressor
+from lightgbm import LGBMRegressor
+from catboost import CatBoostRegressor
+from sklearn.ensemble import GradientBoostingRegressor
+
 
 def train(X_train_data, y_train_data, use_preprocessed=True):
     """
@@ -43,6 +47,26 @@ def train(X_train_data, y_train_data, use_preprocessed=True):
             n_jobs=1,
             random_state=42
         ),
+        'LightGBM': LGBMRegressor(
+            n_estimators=100,
+            learning_rate=0.1,
+            num_leaves=31,
+            random_state=42
+        ),
+        'GradientBoosting': GradientBoostingRegressor(
+            n_estimators=100,
+            learning_rate=0.1,
+            max_depth=3,
+            subsample=0.8,
+            random_state=42
+        ),
+        'CatBoost': CatBoostRegressor(
+            iterations=100,
+            learning_rate=0.1,
+            depth=6,
+            random_state=42,
+            verbose=0
+        ),
         'RandomForest': RandomForestRegressor(
             n_estimators=100,
             max_depth=None,
@@ -54,29 +78,12 @@ def train(X_train_data, y_train_data, use_preprocessed=True):
         ),
         'Stacking': StackingRegressor(
             estimators=[
-                ('xgb', XGBRegressor(
-                    n_estimators=500,
-                    max_depth=4,
-                    learning_rate=0.1,
-                    subsample=0.6,
-                    colsample_bytree=0.6,
-                    gamma=0,
-                    min_child_weight=1,
-                    objective='reg:squarederror',
-                    n_jobs=1,
-                    random_state=42
-                )),
-                ('rf', RandomForestRegressor(
-                    n_estimators=100,
-                    max_depth=None,
-                    max_features='sqrt',
-                    min_samples_split=2,
-                    min_samples_leaf=1,
-                    n_jobs=-1,
-                    random_state=42
-                ))
+                ('xgb', XGBRegressor(random_state=42)),
+                ('rf', RandomForestRegressor(random_state=42)),
+                ('lgbm', LGBMRegressor(random_state=42)),
+                ('gb', GradientBoostingRegressor(random_state=42))
             ],
-            final_estimator=Ridge(),
+            final_estimator=Ridge(alpha=1.0),
             cv=5,
             passthrough=True,
             n_jobs=-1
@@ -92,6 +99,26 @@ def train(X_train_data, y_train_data, use_preprocessed=True):
             'min_samples_split': [2, 4, 6],
             'min_samples_leaf': [1, 2, 4]
         },
+        'LightGBM': {
+            'n_estimators': [100, 200, 300],
+            'learning_rate': [0.05, 0.1, 0.15],
+            'num_leaves': [31, 41, 51],
+            'max_depth': [-1, 5, 10],
+            'min_child_samples': [20, 30, 40]
+        },
+        'GradientBoosting': {
+            'n_estimators': [100, 200, 300],
+            'learning_rate': [0.05, 0.1, 0.15],
+            'max_depth': [3, 4, 5],
+            'subsample': [0.7, 0.8, 0.9],
+            'min_samples_split': [2, 4, 6]
+        },
+        'CatBoost': {
+            'iterations': [100, 200, 300],
+            'learning_rate': [0.05, 0.1, 0.15],
+            'depth': [4, 6, 8],
+            'l2_leaf_reg': [1, 3, 5, 7]
+        },
         'XGBRegressor': {
             'n_estimators': [400, 500, 600],
             'max_depth': [4, 5, 6],
@@ -101,6 +128,14 @@ def train(X_train_data, y_train_data, use_preprocessed=True):
             'gamma': [0, 0.1, 0.2],
             'min_child_weight': [1, 2, 3]
         },
+        'LightGBM': {
+            'n_estimators': [100, 200, 300],
+            'learning_rate': [0.05, 0.1, 0.15],
+            'num_leaves': [31, 41, 51],
+            'max_depth': [-1, 5, 10],
+            'min_child_samples': [20, 30, 40]
+        },
+        
         'Stacking': {}  # No hyperparameter tuning for stacking
     }
     
