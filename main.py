@@ -16,15 +16,15 @@ from sklearn.model_selection import train_test_split
 
 # Try to import Kaggle API
 try:
-    from kaggle.api.kaggle_api_extended import KaggleApi
+    from kaggle.api.kaggle_api_extended import KaggleApi # type: ignore
     KAGGLE_AVAILABLE = True
 except ImportError:
     KAGGLE_AVAILABLE = False
     print("Kaggle API not available. If you need to download data, install it with: pip install kaggle")
 
-from preprocessing import preprocess_data
-from train import train
-from predict import predict
+from src.preprocessing import preprocess_data
+from src.train import train
+from src.predict import predict
 
 def download_data():
     """Download dataset from Kaggle if not already present"""

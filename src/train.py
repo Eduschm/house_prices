@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import joblib
 import os
-from sklearn.model_selection import GridSearchCV, KFold
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, KFold
 from sklearn.linear_model import Ridge
 from sklearn.ensemble import RandomForestRegressor, StackingRegressor
 from xgboost import XGBRegressor
@@ -93,49 +93,41 @@ def train(X_train_data, y_train_data, use_preprocessed=True):
     # Parameter grids for GridSearchCV
     param_grids = {
         'RandomForest': {
-            'n_estimators': [100, 200, 300],
-            'max_depth': [None, 20, 30, 40],
+            'n_estimators': [100, 200],
+            'max_depth': [None, 20, 40],
             'max_features': ['sqrt', 'log2'],
-            'min_samples_split': [2, 4, 6],
-            'min_samples_leaf': [1, 2, 4]
+            'min_samples_split': [2, 6],
+            'min_samples_leaf': [1, 4]
         },
         'LightGBM': {
-            'n_estimators': [100, 200, 300],
-            'learning_rate': [0.05, 0.1, 0.15],
-            'num_leaves': [31, 41, 51],
-            'max_depth': [-1, 5, 10],
-            'min_child_samples': [20, 30, 40]
+            'n_estimators': [100, 300],       # Reduced options
+            'learning_rate': [0.05, 0.15],    # Reduced options
+            'num_leaves': [31, 51],           # Reduced options
+            'max_depth': [-1, 10],            # Reduced options
+            'min_child_samples': [20, 40]     # Reduced options
         },
         'GradientBoosting': {
-            'n_estimators': [100, 200, 300],
-            'learning_rate': [0.05, 0.1, 0.15],
-            'max_depth': [3, 4, 5],
-            'subsample': [0.7, 0.8, 0.9],
-            'min_samples_split': [2, 4, 6]
+            'n_estimators': [100, 300],
+            'learning_rate': [0.05, 0.15],
+            'max_depth': [3, 5],
+            'subsample': [0.7, 0.9],
+            'min_samples_split': [2, 6]
         },
         'CatBoost': {
-            'iterations': [100, 200, 300],
-            'learning_rate': [0.05, 0.1, 0.15],
-            'depth': [4, 6, 8],
-            'l2_leaf_reg': [1, 3, 5, 7]
+            'iterations': [100, 300],
+            'learning_rate': [0.05, 0.15],
+            'depth': [4, 8],
+            'l2_leaf_reg': [1, 7]
         },
         'XGBRegressor': {
-            'n_estimators': [400, 500, 600],
-            'max_depth': [4, 5, 6],
-            'learning_rate': [0.08, 0.1, 0.12],
-            'subsample': [0.6, 0.7, 0.8],
-            'colsample_bytree': [0.6, 0.7, 0.8],
-            'gamma': [0, 0.1, 0.2],
-            'min_child_weight': [1, 2, 3]
+            'n_estimators': [400, 600],
+            'max_depth': [4, 6],
+            'learning_rate': [0.08, 0.12],
+            'subsample': [0.6, 0.8],
+            'colsample_bytree': [0.6, 0.8],
+            'gamma': [0, 0.2],
+            'min_child_weight': [1, 3]
         },
-        'LightGBM': {
-            'n_estimators': [100, 200, 300],
-            'learning_rate': [0.05, 0.1, 0.15],
-            'num_leaves': [31, 41, 51],
-            'max_depth': [-1, 5, 10],
-            'min_child_samples': [20, 30, 40]
-        },
-        
         'Stacking': {}  # No hyperparameter tuning for stacking
     }
     
@@ -152,8 +144,11 @@ def train(X_train_data, y_train_data, use_preprocessed=True):
         
         param_grid = param_grids.get(name, {})
         
+        
         if param_grid:
-            grid = GridSearchCV(
+            # Use RandomizedSearchCV for LightGBM to speed up the process
+           
+            search = GridSearchCV(
                 estimator=model,
                 param_grid=param_grid,
                 cv=kf,
@@ -161,18 +156,18 @@ def train(X_train_data, y_train_data, use_preprocessed=True):
                 n_jobs=-1,
                 scoring='neg_mean_squared_error'
             )
-            
-            grid.fit(X_train_data, y_train_data)
-            final_model = grid.best_estimator_
+        
+            search.fit(X_train_data, y_train_data)
+            final_model = search.best_estimator_
             
             cv_results[name] = {
-                'best_params': grid.best_params_,
-                'best_score_cv': grid.best_score_,
-                'all_cv_results': grid.cv_results_
+                'best_params': search.best_params_,
+                'best_score_cv': search.best_score_,
+                'all_cv_results': search.cv_results_
             }
             
-            print(f"Best parameters for {name}: {grid.best_params_}")
-            print(f"Best cross-validation score: {grid.best_score_:.4f}")
+            print(f"Best parameters for {name}: {search.best_params_}")
+            print(f"Best cross-validation score: {search.best_score_:.4f}")
         else:
             model.fit(X_train_data, y_train_data)
             final_model = model

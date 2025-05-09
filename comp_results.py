@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import joblib
 from pathlib import Path
-from preprocessing import preprocess_data
+from src.preprocessing import preprocess_data
 
 # ---------------------------------------------------------------------------
 # Configuration
