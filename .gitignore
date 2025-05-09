@@ -172,3 +172,12 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# CatBoost logs and temporary files
+catboost_info/
+
+# Other ML training logs and large binary files
+*.model
+*.pkl
+models/*.txt
+models/*.bin

@@ -9,8 +9,8 @@ from src.preprocessing import preprocess_data
 # ---------------------------------------------------------------------------
 TRAIN_CSV      = Path("data/train.csv")
 TEST_CSV       = Path("data/test.csv")
-MODEL_PKL      = Path("models/RandomForest_best.pkl")
-SUBMISSION_CSV = Path("stacking_submission.csv")
+MODEL_PKL      = Path("models/XGBRegressor_best.pkl")
+SUBMISSION_CSV = Path("data/stacking_submission.csv")
 
 # ---------------------------------------------------------------------------
 # 1. Load data
@@ -42,6 +42,7 @@ print(f"Regressor expects {regressor.n_features_in_} features.")
 # ---------------------------------------------------------------------------
 # 4. Align features
 # ---------------------------------------------------------------------------
+
 n_expected = regressor.n_features_in_
 n_actual   = X_test_transformed.shape[1]
 if n_actual > n_expected:

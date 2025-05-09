@@ -47,6 +47,7 @@ def train(X_train_data, y_train_data, use_preprocessed=True):
             reg_lambda=1.0,  # Add L2 regularization
             random_state=42,
             n_jobs=-1,
+
         ),
         'XGBRegressor': XGBRegressor(
             n_estimators=500,
@@ -99,42 +100,49 @@ def train(X_train_data, y_train_data, use_preprocessed=True):
     }
     
     # Parameter grids for GridSearchCV
-    param_grids = {
+    param_grids = param_grids = {
         'RandomForest': {
-            'n_estimators': [100, 200],
-            'max_depth': [None, 20, 40],
-            'max_features': ['sqrt', 'log2'],
-            'min_samples_split': [2, 6],
-            'min_samples_leaf': [1, 4]
+            'n_estimators': [200, 300],              # Increase range: best value was at upper limit (200)
+            'max_depth': [30, 40, 50],               # Focus around best value (40) with higher options
+            'max_features': ['sqrt'],                # Keep only winner ('sqrt')
+            'min_samples_split': [2],                # Keep only winner (2)
+            'min_samples_leaf': [1, 2]               # Keep winner (1) and test one close value
         },
         'LightGBM': {
-            
+            'n_estimators': [100, 200],              # Conservative number of trees to avoid loops
+            'learning_rate': [0.05, 0.1],            # Standard rates that work well
+            'num_leaves': [15, 31],                  # 31 is default, 15 is more conservative
+            'min_child_samples': [5, 20],            # 20 is default, 5 allows more splits
+            'subsample': [0.7, 0.9],                 # Subsampling for robustness
+            'colsample_bytree': [0.7, 0.9],          # Feature subsampling
+            'reg_alpha': [0.1],                      # L1 regularization to prevent overfitting
+            'reg_lambda': [0.1],                     # L2 regularization to prevent overfitting
+            'min_split_gain': [0]                    # Allow splits with minimal gain
         },
         'GradientBoosting': {
-            'n_estimators': [100, 300],
-            'learning_rate': [0.05, 0.15],
-            'max_depth': [3, 5],
-            'subsample': [0.7, 0.9],
-            'min_samples_split': [2, 6]
+            'n_estimators': [300, 400],              # Increase range: best value was at upper limit (300)
+            'learning_rate': [0.03, 0.05, 0.07],     # Explore around best value (0.05) with finer granularity
+            'max_depth': [2, 3, 4],                  # Explore around best value (3)
+            'subsample': [0.6, 0.7, 0.8],            # Explore around best value (0.7)
+            'min_samples_split': [2]                 # Keep only winner (2)
         },
         'CatBoost': {
-            'iterations': [100, 300],
-            'learning_rate': [0.05, 0.15],
-            'depth': [4, 8],
-            'l2_leaf_reg': [1, 7]
+            'iterations': [300, 400],                # Increase range: best value was at upper limit (300)
+            'learning_rate': [0.1, 0.15, 0.2],       # Explore around best value (0.15)
+            'depth': [3, 4, 5],                      # Explore around best value (4)
+            'l2_leaf_reg': [0.5, 1, 3]               # Explore around best value (1)
         },
         'XGBRegressor': {
-            'n_estimators': [400, 600],
-            'max_depth': [4, 6],
-            'learning_rate': [0.08, 0.12],
-            'subsample': [0.6, 0.8],
-            'colsample_bytree': [0.6, 0.8],
-            'gamma': [0, 0.2],
-            'min_child_weight': [1, 3]
+            'n_estimators': [400, 500],              # Explore around best value (400)
+            'max_depth': [3, 4, 5],                  # Explore around best value (4)
+            'learning_rate': [0.05, 0.08, 0.1],      # Explore around best value (0.08)
+            'subsample': [0.7, 0.8, 0.9],            # Explore around best value (0.8)
+            'colsample_bytree': [0.5, 0.6, 0.7],     # Explore around best value (0.6)
+            'gamma': [0],                            # Keep only winner (0)
+            'min_child_weight': [1, 2]               # Explore around best value (1)
         },
         'Stacking': {}  # No hyperparameter tuning for stacking
     }
-    
     # Store trained models and results
     best_models = {}
     cv_results = {}
