@@ -35,6 +35,20 @@ def train(X_train_data, y_train_data, use_preprocessed=True):
     
     # Define models
     models = {
+         'LightGBM': LGBMRegressor(
+            n_estimators=100,
+            learning_rate=0.05,  # Try a lower learning rate
+            num_leaves=31,
+            min_child_samples=30,  # Increase this value
+            min_child_weight=10,  # Add this parameter
+            subsample=0.8,  # Add subsampling
+            colsample_bytree=0.8,  # Add feature subsampling
+            reg_alpha=0.1,  # Add L1 regularization
+            reg_lambda=1.0,  # Add L2 regularization
+            random_state=42,
+            n_jobs=-1,
+            device='gpu'
+        ),
         'XGBRegressor': XGBRegressor(
             n_estimators=500,
             max_depth=4,
@@ -47,12 +61,7 @@ def train(X_train_data, y_train_data, use_preprocessed=True):
             n_jobs=1,
             random_state=42
         ),
-        'LightGBM': LGBMRegressor(
-            n_estimators=100,
-            learning_rate=0.1,
-            num_leaves=31,
-            random_state=42
-        ),
+       
         'GradientBoosting': GradientBoostingRegressor(
             n_estimators=100,
             learning_rate=0.1,
@@ -100,11 +109,7 @@ def train(X_train_data, y_train_data, use_preprocessed=True):
             'min_samples_leaf': [1, 4]
         },
         'LightGBM': {
-            'n_estimators': [100, 300],       # Reduced options
-            'learning_rate': [0.05, 0.15],    # Reduced options
-            'num_leaves': [31, 51],           # Reduced options
-            'max_depth': [-1, 10],            # Reduced options
-            'min_child_samples': [20, 40]     # Reduced options
+            
         },
         'GradientBoosting': {
             'n_estimators': [100, 300],
@@ -134,7 +139,6 @@ def train(X_train_data, y_train_data, use_preprocessed=True):
     # Store trained models and results
     best_models = {}
     cv_results = {}
-    
     # Setup k-fold cross validation
     kf = KFold(n_splits=5, shuffle=True, random_state=42)
     
