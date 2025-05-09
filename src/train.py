@@ -47,7 +47,6 @@ def train(X_train_data, y_train_data, use_preprocessed=True):
             reg_lambda=1.0,  # Add L2 regularization
             random_state=42,
             n_jobs=-1,
-            device='gpu'
         ),
         'XGBRegressor': XGBRegressor(
             n_estimators=500,
