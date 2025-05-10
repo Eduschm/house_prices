@@ -45,16 +45,26 @@ def engineer_features(df):
         if col in df_eng.columns:
             df_eng[f'{col}_Missing'] = df_eng[col].isna().astype(int)
     
-    # Log transform highly skewed numeric features
+    # FIXED: Always create these log-transformed features for consistency
+    # This ensures both train and test have the same features
+    always_log_features = ['LotFrontage', 'TotalBsmtSF', 'LotArea', 'GrLivArea']
+    
+    for feat in always_log_features:
+        if feat in df_eng.columns:
+            # Handle NaN values by filling with 0 before log transform
+            df_eng[f'{feat}_Log'] = np.log1p(df_eng[feat].fillna(0))
+    
+    # Apply log transform to other highly skewed numeric features
     numeric_feats = df_eng.dtypes[df_eng.dtypes != "object"].index
     skewed_feats = df_eng[numeric_feats].apply(lambda x: x.dropna().skew()).abs()
     skewed_feats = skewed_feats[skewed_feats > 0.75]
     
     for feat in skewed_feats.index:
         if (feat in df_eng.columns and 
+            feat not in always_log_features and  # Skip already transformed features
             feat not in ['SalePrice', 'Id', 'YrSold', 'YearBuilt', 'YearRemodAdd', 'OverallQual']):
             # Add 1 to handle zeros
-            df_eng[f'{feat}_Log'] = np.log1p(df_eng[feat])
+            df_eng[f'{feat}_Log'] = np.log1p(df_eng[feat].fillna(0))
     
     return df_eng
 
@@ -150,7 +160,7 @@ def preprocess_data(train_df, test_df=None):
                 df_clean[col] = df_clean[col].astype('category')
         
         # Drop features with high correlation - keeping the original structure
-        columns_to_drop = ['GarageCars', 'TotalBsmtSF', 'GarageYrBlt']
+        columns_to_drop = ['GarageCars', 'GarageYrBlt']  # Keep TotalBsmtSF for the log feature
         df_clean = df_clean.drop(columns_to_drop, axis=1, errors='ignore')
         
         return df_clean
@@ -165,6 +175,18 @@ def preprocess_data(train_df, test_df=None):
     else:
         X_train = train_clean
         y_train = None
+    
+    # Critical fix: If test data is provided, ensure column consistency
+    if test_df_eng is not None:
+        test_clean = clean_df(test_df_eng)
+        
+        # Ensure test_clean has the same columns as X_train
+        missing_cols = set(X_train.columns) - set(test_clean.columns)
+        # Add missing columns
+        for col in missing_cols:
+            test_clean[col] = 0
+        # Ensure the order of columns is the same
+        test_clean = test_clean[X_train.columns]
     
     # Create and fit preprocessor on training data
     preprocessor = create_preprocessor(X_train, fit_encoder=True)
@@ -187,7 +209,6 @@ def preprocess_data(train_df, test_df=None):
     
     # If test data is provided, process it too
     if test_df_eng is not None:
-        test_clean = clean_df(test_df_eng)
         X_test_transformed = preprocessor.transform(test_clean)
         return X_train_transformed, y_train, X_test_transformed, feature_names
     
