@@ -163,7 +163,7 @@ def train(X_train_data, y_train_data, use_preprocessed=True):
                 estimator=model,
                 param_grid=param_grid,
                 cv=kf,
-                verbose=1,
+                verbose=3,
                 n_jobs=-1,
                 scoring='neg_mean_squared_error'
             )
