@@ -82,7 +82,7 @@ def train(X_train_data, y_train_data, use_preprocessed=True):
             random_state=42
         ),
         'Stacking': StackingRegressor(
-            estimators=loaded_models
+            estimators=loaded_models,
             final_estimator=Ridge(alpha=1.0),
             cv=5,
             passthrough=True,
