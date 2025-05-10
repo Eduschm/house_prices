@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 """
 Model blending script for Kaggle House Prices competition
-This file should be placed in the src/ directory
 """
 
 import os

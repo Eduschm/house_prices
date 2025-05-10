@@ -1,4 +1,64 @@
-print("Data downloaded successfully!")
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Sat May  3 14:24:41 2025
+@author: edu
+"""
+
+import pandas as pd
+import numpy as np
+import os
+import joblib
+import argparse
+import warnings
+import zipfile
+from sklearn.model_selection import train_test_split
+
+# Try to import Kaggle API
+try:
+    from kaggle.api.kaggle_api_extended import KaggleApi # type: ignore
+    KAGGLE_AVAILABLE = True
+except ImportError:
+    KAGGLE_AVAILABLE = False
+    print("Kaggle API not available. If you need to download data, install it with: pip install kaggle")
+
+from src.preprocessing import preprocess_data
+from src.train import train
+from src.predict import predict
+from src.advanced_training import train_advanced
+from src.blend_models import blend_predictions
+
+def download_data():
+    """Download dataset from Kaggle if not already present"""
+    # Check if data already exists
+    if os.path.exists('data/train.csv') and os.path.exists('data/test.csv'):
+        print("Data files already exist. Skipping download.")
+        return True
+        
+    if not KAGGLE_AVAILABLE:
+        print("ERROR: Kaggle API not available. Please install it with: pip install kaggle")
+        print("Make sure your Kaggle API credentials are configured.")
+        return False
+        
+    try:
+        print("Downloading data from Kaggle...")
+        # Create data directory if it doesn't exist
+        os.makedirs('data', exist_ok=True)
+        
+        # Authenticate with Kaggle
+        api = KaggleApi()
+        api.authenticate()
+        
+        # Download competition files
+        api.competition_download_files(
+            'house-prices-advanced-regression-techniques',
+            path='data/'
+        )
+        
+        # Unzip the downloaded file
+        with zipfile.ZipFile('data/house-prices-advanced-regression-techniques.zip', 'r') as zip_ref:
+            zip_ref.extractall('data/')
+            print("Data downloaded successfully!")
         return True
         
     except Exception as e:

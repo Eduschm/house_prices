@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 """
 Optimized stacking implementation for house price prediction
-This file should be placed in the src/ directory
 """
 
 def get_optimized_stacking(best_models=None):
