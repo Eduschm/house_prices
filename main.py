@@ -1,9 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Sat May  3 14:24:41 2025
-@author: edu
-"""
 
 import pandas as pd
 import numpy as np
@@ -25,8 +19,13 @@ except ImportError:
 from src.preprocessing import preprocess_data
 from src.train import train
 from src.predict import predict
-from src.advanced_training import train_advanced
-from src.blend_models import blend_predictions
+# Import blend_predictions if available
+try:
+    from src.blend_models import blend_predictions
+    BLEND_AVAILABLE = True
+except ImportError:
+    BLEND_AVAILABLE = False
+    print("Blend functionality not available. Create src/blend_models.py to enable blending.")
 
 def download_data():
     """Download dataset from Kaggle if not already present"""
@@ -58,7 +57,8 @@ def download_data():
         # Unzip the downloaded file
         with zipfile.ZipFile('data/house-prices-advanced-regression-techniques.zip', 'r') as zip_ref:
             zip_ref.extractall('data/')
-            print("Data downloaded successfully!")
+            
+        print("Data downloaded successfully!")
         return True
         
     except Exception as e:
@@ -72,27 +72,21 @@ def main():
     
     parser.add_argument(
         '--mode', 
-        choices=['train', 'predict', 'both', 'advanced'], 
+        choices=['train', 'predict', 'blend', 'all'], 
         required=True, 
-        help='Select operation mode: train, predict, both, or advanced'
+        help='Select operation mode: train, predict, blend, or all'
     )
     
     parser.add_argument(
         '--use_cached', 
         action='store_true',
-        help='Use cached preprocessed data and models if available'
+        help='Use cached preprocessed data if available'
     )
     
     parser.add_argument(
         '--skip_download', 
         action='store_true',
         help='Skip data download from Kaggle (assume data is already present)'
-    )
-    
-    parser.add_argument(
-        '--blend',
-        action='store_true',
-        help='Create a blended submission from all trained models'
     )
     
     args = parser.parse_args()
@@ -151,34 +145,26 @@ def main():
         joblib.dump(feature_names, 'data/preprocessed/feature_names.joblib')
     
     # Execute requested mode
-    if args.mode == 'advanced':
-        print("\n===== RUNNING ADVANCED TRAINING PIPELINE =====")
-        all_models = train_advanced(X_train, y_train, use_cached=args.use_cached)
-        
-        print("\n===== EVALUATING MODELS =====")
-        test_results = predict(X_test, y_test)
-        
-        if args.blend or True:  # Always blend in advanced mode
-            print("\n===== CREATING BLENDED SUBMISSION =====")
-            submission = blend_predictions('data/test.csv')
-    
-    elif args.mode in ['train', 'both']:
+    if args.mode in ['train', 'all']:
         print("\n===== TRAINING MODELS =====")
         models, cv_results = train(X_train, y_train, use_preprocessed=True)
         
         # Save cross-validation results
         joblib.dump(cv_results, 'models/cv_results.joblib')
     
-    if args.mode in ['predict', 'both']:
+    if args.mode in ['predict', 'all']:
         print("\n===== EVALUATING MODELS =====")
         test_results = predict(X_test, y_test)
         
         # Save evaluation results
         joblib.dump(test_results, 'models/test_results.joblib')
-        
-        if args.blend:
-            print("\n===== CREATING BLENDED SUBMISSION =====")
+    
+    if args.mode in ['blend', 'all']:
+        if BLEND_AVAILABLE:
+            print("\n===== BLENDING MODEL PREDICTIONS =====")
             submission = blend_predictions('data/test.csv')
+        else:
+            print("\nBlending functionality not available. Create src/blend_models.py to enable blending.")
     
     print("\nAll operations completed successfully.")
 

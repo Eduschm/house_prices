@@ -1,135 +1,172 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Model blending script for Kaggle House Prices competition
-"""
-
 import os
+import joblib
 import numpy as np
 import pandas as pd
-import joblib
+from pathlib import Path
+from src.preprocessing import preprocess_data, engineer_features
 
-def blend_predictions(test_csv='data/test.csv', output_file='blended_submission.csv'):
+def load_models(model_dir='models'):
     """
-    Create an optimally weighted blend of model predictions
+    Load all trained models from the specified directory
     
     Parameters:
     -----------
-    test_csv : str
-        Path to test CSV file with IDs
-    output_file : str
-        Path to save the output submission file
+    model_dir : str
+        Directory containing model files
         
     Returns:
     --------
-    submission_df : DataFrame
-        Submission-ready DataFrame with IDs and predictions
+    models : dict
+        Dictionary of model name -> model object
     """
-    print("\n===== CREATING BLENDED SUBMISSION =====")
+    models = {}
     
-    # Check if models directory exists
-    if not os.path.exists('models'):
-        print("Error: No models directory found. Train models first.")
-        return None
+    for file in os.listdir(model_dir):
+        if file.endswith('_best.pkl'):
+            model_name = os.path.basename(file)
+            try:
+                model = joblib.load(os.path.join(model_dir, file))
+                models[model_name] = model
+                print(f"Loaded model: {model_name}")
+            except Exception as e:
+                print(f"Error loading model {model_name}: {e}")
     
-    # Check if test data exists
-    if not os.path.exists(test_csv):
-        print(f"Error: Test file {test_csv} not found.")
-        return None
+    return models
+
+def generate_predictions(model, X_test, model_name):
+    """
+    Generate predictions with error handling and feature compatibility
     
-    # Load test IDs from original file
-    test_df = pd.read_csv(test_csv)
-    ids = test_df['Id'].values
-    
-    # Check if preprocessed test data exists
-    if not os.path.exists('data/preprocessed/X_test.npy'):
-        print("Error: Preprocessed test data not found. Run preprocessing first.")
-        return None
-    
-    # Load preprocessed test data
-    X_test = np.load('data/preprocessed/X_test.npy')
-    
-    # Load all model files
-    model_files = [f for f in os.listdir('models') if f.endswith('.pkl')]
-    predictions = {}
-    weights = {}
-    
-    # Define default model weights - adjust based on cross-validation scores
-    default_weights = {
-        'XGBRegressor_best': 0.30,
-        'CatBoost_best': 0.25,
-        'LightGBM_best': 0.15,
-        'GradientBoosting_best': 0.10,
-        'RandomForest_best': 0.05,
-        'Stacking_best': 0.40,  # Give higher weight to stacking
-    }
-    
-    # Make predictions with each model
-    for model_file in model_files:
-        model_name = model_file.replace('.pkl', '')
+    Parameters:
+    -----------
+    model : trained model object
+        The model to use for prediction
+    X_test : ndarray
+        Test features
+    model_name : str
+        Name of the model for logging
         
-        # Skip CV results and other non-model files
-        if 'results' in model_name or 'cv' in model_name or 'base_models' in model_name:
-            continue
-            
+    Returns:
+    --------
+    preds : ndarray
+        Log-scale predictions
+    """
+    # Get expected feature count for this model
+    if hasattr(model, 'n_features_in_'):
+        expected_features = model.n_features_in_
+    elif hasattr(model, 'feature_importances_'):
+        expected_features = len(model.feature_importances_)
+    else:
+        # For StackingRegressor or other complex models
         try:
-            # Load the model
-            model = joblib.load(f"models/{model_file}")
+            expected_features = model.estimators_[0].n_features_in_
+        except:
+            expected_features = X_test.shape[1]  # Assume it's correct
             
-            # Make predictions
-            preds = model.predict(X_test)
-            
-            # Store predictions and weight
-            predictions[model_name] = preds
-            weights[model_name] = default_weights.get(model_name, 0.1)
-            
-            print(f"Generated predictions from {model_name}")
-            
-        except Exception as e:
-            print(f"Error with model {model_name}: {e}")
+    print(f"Model {model_name} expects {expected_features} features, got {X_test.shape[1]}")
     
-    # Normalize weights to sum to 1
-    weight_sum = sum(weights.values())
-    if weight_sum > 0:
-        weights = {k: v/weight_sum for k, v in weights.items()}
-    
-    # Check if we have any valid predictions
-    if not predictions:
-        print("Error: No valid predictions generated.")
-        return None
-    
-    # Create weighted blend
-    blend = np.zeros(len(ids))
-    
-    for model_name, preds in predictions.items():
-        # Convert log predictions back if needed
+    # Adjust features if needed
+    if X_test.shape[1] != expected_features:
+        if X_test.shape[1] > expected_features:
+            print(f"Trimming features for {model_name}: {X_test.shape[1]} -> {expected_features}")
+            X_test_adjusted = X_test[:, :expected_features]
+        else:
+            padding = expected_features - X_test.shape[1]
+            print(f"Padding features for {model_name}: {X_test.shape[1]} -> {expected_features} (+{padding})")
+            X_test_adjusted = np.pad(
+                X_test,
+                ((0, 0), (0, padding)),
+                mode='constant',
+                constant_values=0
+            )
+    else:
+        X_test_adjusted = X_test
+        
+    try:
+        print(f"Generating predictions from {model_name}")
+        preds = model.predict(X_test_adjusted)
+        
+        # Check if predictions seem to be in log scale
         if np.max(preds) < 20:  # Heuristic to detect log-transformed values
             print(f"Converting {model_name} predictions from log scale")
             preds = np.expm1(preds)
         
-        # Add weighted predictions
-        blend += weights[model_name] * preds
+        return preds
+    except Exception as e:
+        print(f"Error with model {model_name}: {e}")
+        return None
+
+def blend_predictions(test_csv_path, weights=None):
+    """
+    Blend predictions from multiple models
+    
+    Parameters:
+    -----------
+    test_csv_path : str
+        Path to the test CSV file
+    weights : dict, optional
+        Dictionary of model name -> weight
+        If None, use equal weights for all models
+        
+    Returns:
+    --------
+    submission : DataFrame
+        DataFrame with Id and SalePrice columns
+    """
+    # Load and preprocess test data
+    train_df = pd.read_csv('data/train.csv')
+    test_df = pd.read_csv(test_csv_path)
+    ids = test_df["Id"].copy()
+    
+    # Clean and preprocess data
+    _, _, X_test_transformed, _ = preprocess_data(train_df, test_df)
+    
+    # Load models
+    models = load_models()
+    
+    # Set default weights if not provided
+    if weights is None:
+        weights = {
+            'XGBRegressor_best.pkl': 0.40,
+            'CatBoost_best.pkl': 0.25,
+            'RandomForest_best.pkl': 0.15,
+            'GradientBoosting_best.pkl': 0.15,
+            'LightGBM_best.pkl': 0.05
+        }
+        
+    # Generate predictions
+    predictions = {}
+    valid_predictions = {}
+    
+    for model_name, model in models.items():
+        preds = generate_predictions(model, X_test_transformed, model_name)
+        if preds is not None:
+            predictions[model_name] = preds
+            # Only include models with weights in the blending
+            if model_name in weights:
+                valid_predictions[model_name] = preds
+    
+    # Normalize weights for valid models
+    total_weight = sum(weights.get(model, 0) for model in valid_predictions.keys())
+    if total_weight == 0:
+        # If no weights are valid, use equal weights
+        norm_weights = {model: 1.0 / len(valid_predictions) for model in valid_predictions}
+    else:
+        norm_weights = {model: weights.get(model, 0) / total_weight 
+                        for model in valid_predictions}
+    
+    # Blend predictions
+    blend = np.zeros(len(ids))
+    for model_name, preds in valid_predictions.items():
+        weight = norm_weights.get(model_name, 0)
+        if weight > 0:
+            blend += weight * preds
+            print(f"Added {model_name} with weight {weight:.2f}")
     
     # Create submission DataFrame
-    submission = pd.DataFrame({
-        'Id': ids,
-        'SalePrice': blend
-    })
-    
-    # Clean up predictions
-    # Ensure predictions are positive and reasonable
-    submission['SalePrice'] = submission['SalePrice'].clip(lower=10000, upper=2000000)
-    
-    # Save submission
-    submission.to_csv(output_file, index=False)
-    print(f"Blended submission saved to {output_file}")
-    
-    # Print model contributions
-    print("\nModel weights in final blend:")
-    for model_name, weight in sorted(weights.items(), key=lambda x: -x[1]):
-        print(f"{model_name}: {weight:.4f}")
+    submission = pd.DataFrame({"Id": ids, "SalePrice": blend})
+    submission_path = Path("data/blended_submission.csv")
+    submission.to_csv(submission_path, index=False)
+    print(f"Submission written to {submission_path} ({len(submission)} rows)")
     
     return submission
-
-if __name__ == "__main__":
-    blend_predictions()
