@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 """
 Advanced training module with two-phase approach for house price prediction
-This file should be placed in the src/ directory
 """
 
 import os
@@ -71,7 +70,7 @@ def train_advanced(X_train, y_train, test_size=0.2, use_cached=True):
         print("\n===== PHASE 2: TRAINING STACKING ENSEMBLE =====")
         
         # Import the stacking function
-        from src.optimized_stacking import get_optimized_stacking
+        from optimized_stacking import get_optimized_stacking
         
         # Create stacking model with tuned base models
         stacking_model = get_optimized_stacking(all_models)
