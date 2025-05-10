@@ -178,6 +178,6 @@ catboost_info/
 
 # Other ML training logs and large binary files
 *.model
-*.pkl
+#*.pkl
 models/*.txt
 models/*.bin
