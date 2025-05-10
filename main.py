@@ -1,63 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Sat May  3 14:24:41 2025
-@author: edu
-"""
-
-import pandas as pd
-import numpy as np
-import os
-import joblib
-import argparse
-import warnings
-import zipfile
-from sklearn.model_selection import train_test_split
-
-# Try to import Kaggle API
-try:
-    from kaggle.api.kaggle_api_extended import KaggleApi # type: ignore
-    KAGGLE_AVAILABLE = True
-except ImportError:
-    KAGGLE_AVAILABLE = False
-    print("Kaggle API not available. If you need to download data, install it with: pip install kaggle")
-
-from src.preprocessing import preprocess_data
-from src.train import train
-from src.predict import predict
-
-def download_data():
-    """Download dataset from Kaggle if not already present"""
-    # Check if data already exists
-    if os.path.exists('data/train.csv') and os.path.exists('data/test.csv'):
-        print("Data files already exist. Skipping download.")
-        return True
-        
-    if not KAGGLE_AVAILABLE:
-        print("ERROR: Kaggle API not available. Please install it with: pip install kaggle")
-        print("Make sure your Kaggle API credentials are configured.")
-        return False
-        
-    try:
-        print("Downloading data from Kaggle...")
-        # Create data directory if it doesn't exist
-        os.makedirs('data', exist_ok=True)
-        
-        # Authenticate with Kaggle
-        api = KaggleApi()
-        api.authenticate()
-        
-        # Download competition files
-        api.competition_download_files(
-            'house-prices-advanced-regression-techniques',
-            path='data/'
-        )
-        
-        # Unzip the downloaded file
-        with zipfile.ZipFile('data/house-prices-advanced-regression-techniques.zip', 'r') as zip_ref:
-            zip_ref.extractall('data/')
-            
-        print("Data downloaded successfully!")
+print("Data downloaded successfully!")
         return True
         
     except Exception as e:
@@ -71,21 +12,27 @@ def main():
     
     parser.add_argument(
         '--mode', 
-        choices=['train', 'predict', 'both'], 
+        choices=['train', 'predict', 'both', 'advanced'], 
         required=True, 
-        help='Select operation mode: train, predict, or both'
+        help='Select operation mode: train, predict, both, or advanced'
     )
     
     parser.add_argument(
         '--use_cached', 
         action='store_true',
-        help='Use cached preprocessed data if available'
+        help='Use cached preprocessed data and models if available'
     )
     
     parser.add_argument(
         '--skip_download', 
         action='store_true',
         help='Skip data download from Kaggle (assume data is already present)'
+    )
+    
+    parser.add_argument(
+        '--blend',
+        action='store_true',
+        help='Create a blended submission from all trained models'
     )
     
     args = parser.parse_args()
@@ -144,7 +91,18 @@ def main():
         joblib.dump(feature_names, 'data/preprocessed/feature_names.joblib')
     
     # Execute requested mode
-    if args.mode in ['train', 'both']:
+    if args.mode == 'advanced':
+        print("\n===== RUNNING ADVANCED TRAINING PIPELINE =====")
+        all_models = train_advanced(X_train, y_train, use_cached=args.use_cached)
+        
+        print("\n===== EVALUATING MODELS =====")
+        test_results = predict(X_test, y_test)
+        
+        if args.blend or True:  # Always blend in advanced mode
+            print("\n===== CREATING BLENDED SUBMISSION =====")
+            submission = blend_predictions('data/test.csv')
+    
+    elif args.mode in ['train', 'both']:
         print("\n===== TRAINING MODELS =====")
         models, cv_results = train(X_train, y_train, use_preprocessed=True)
         
@@ -157,6 +115,10 @@ def main():
         
         # Save evaluation results
         joblib.dump(test_results, 'models/test_results.joblib')
+        
+        if args.blend:
+            print("\n===== CREATING BLENDED SUBMISSION =====")
+            submission = blend_predictions('data/test.csv')
     
     print("\nAll operations completed successfully.")
 
