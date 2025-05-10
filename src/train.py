@@ -152,61 +152,45 @@ def train(X_train_data, y_train_data, use_preprocessed=True):
         
         # Special case for LightGBM to avoid infinite loop issues
         if name == 'LightGBM':
-            print(f"Training {name} with RandomizedSearchCV to avoid potential issues...")
-            
-            # Use RandomizedSearchCV instead of GridSearchCV
-            search = RandomizedSearchCV(
-                estimator=model,
-                param_distributions=param_grid,
-                n_iter=6,               # Try only 6 combinations instead of all
-                cv=kf,
-                verbose=1,
-                n_jobs=-1,
-                scoring='neg_mean_squared_error',
-                random_state=42
-            )
-            
+            print(f"Training {name} with simplified approach to avoid hanging...")
+        
+            # Skip GridSearch/RandomizedSearch entirely
             try:
-                # Train with early stopping if possible
-                import lightgbm as lgb
-                from sklearn.model_selection import train_test_split
-                
-                # Create a small validation set
-                X_train_lgbm, X_valid_lgbm, y_train_lgbm, y_valid_lgbm = train_test_split(
-                    X_train_data, y_train_data, test_size=0.2, random_state=42
+                # Create a simpler model
+                final_model = LGBMRegressor(
+                    n_estimators=100,        # Reduced number
+                    learning_rate=0.1,
+                    num_leaves=31,
+                    max_depth=6,
+                    min_child_samples=20,
+                    subsample=0.8,
+                    colsample_bytree=0.8,
+                    random_state=42,
+                    n_jobs=-1,
+                    verbose=-1            # Silent mode
                 )
                 
-                # Train with early stopping
-                search.fit(
-                    X_train_lgbm, 
-                    y_train_lgbm,
-                    eval_set=[(X_valid_lgbm, y_valid_lgbm)],
-                    callbacks=[lgb.early_stopping(stopping_rounds=50)],
-                    eval_metric='rmse'
-                )
-                
-                final_model = search.best_estimator_
+                # Train without early stopping
+                final_model.fit(X_train_data, y_train_data)
                 
                 cv_results[name] = {
-                    'best_params': search.best_params_,
-                    'best_score_cv': search.best_score_,
-                    'all_cv_results': search.cv_results_
+                    'best_params': final_model.get_params(),
+                    'best_score_cv': None,
+                    'all_cv_results': None
                 }
                 
-                print(f"Best parameters for {name}: {search.best_params_}")
-                print(f"Best cross-validation score: {search.best_score_:.4f}")
+                print(f"{name} trained successfully with simplified approach.")
                 
             except Exception as e:
                 print(f"LightGBM training failed with error: {str(e)}")
                 print("Falling back to default LightGBM model...")
                 
-                # Create a simpler model as fallback
+                # Create an even simpler model as fallback
                 final_model = LGBMRegressor(
-                    n_estimators=100,
+                    n_estimators=50,
                     learning_rate=0.1,
                     num_leaves=15,
                     max_depth=5,
-                    min_child_samples=20,
                     subsample=0.9,
                     colsample_bytree=0.9,
                     random_state=42,
@@ -222,7 +206,16 @@ def train(X_train_data, y_train_data, use_preprocessed=True):
                 }
                 
                 print("Fallback LightGBM model trained successfully.")
-        
+            
+            best_models[name] = final_model
+            
+            # Save the model
+            joblib.dump(final_model, f"models/{name}_best.pkl")
+            print("-" * 50)
+            
+            # Skip to the next model
+            continue
+        # RandomizedSearchCV for XGBoost and CatBoost    
         # Standard training for other models
         elif param_grid:
             search = GridSearchCV(
