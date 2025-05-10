@@ -116,8 +116,7 @@ def train(X_train_data, y_train_data, use_preprocessed=True):
             'subsample': [0.7, 0.9],                 # Subsampling for robustness
             'colsample_bytree': [0.7, 0.9],          # Feature subsampling
             'reg_alpha': [0.1],                      # L1 regularization to prevent overfitting
-            'reg_lambda': [0.1],                     # L2 regularization to prevent overfitting
-            'min_split_gain': [0]                    # Allow splits with minimal gain
+            'reg_lambda': [0.1],                     # L2 regularization to prevent overfitting                   # Allow splits with minimal gain
         },
         'GradientBoosting': {
             'n_estimators': [300, 400],              # Increase range: best value was at upper limit (300)
