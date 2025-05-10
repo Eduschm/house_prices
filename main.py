@@ -1,3 +1,4 @@
+# Modified main.py to use advanced training
 
 import pandas as pd
 import numpy as np
@@ -17,7 +18,8 @@ except ImportError:
     print("Kaggle API not available. If you need to download data, install it with: pip install kaggle")
 
 from src.preprocessing import preprocess_data
-from src.train import train
+# Replace the train import with advanced_training
+from src.advanced_training import train_advanced
 from src.predict import predict
 # Import blend_predictions if available
 try:
@@ -146,11 +148,11 @@ def main():
     
     # Execute requested mode
     if args.mode in ['train', 'all']:
-        print("\n===== TRAINING MODELS =====")
-        models, cv_results = train(X_train, y_train, use_preprocessed=True)
-        
-        # Save cross-validation results
-        joblib.dump(cv_results, 'models/cv_results.joblib')
+        print("\n===== TRAINING MODELS USING ADVANCED APPROACH =====")
+        # Replace train() with train_advanced()
+        models = train_advanced(X_train, y_train, test_size=0.2, use_cached=args.use_cached)
+        # Save all models dictionary
+        joblib.dump(models, 'models/all_models.joblib')
     
     if args.mode in ['predict', 'all']:
         print("\n===== EVALUATING MODELS =====")
