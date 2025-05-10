@@ -33,22 +33,18 @@ def train(X_train_data, y_train_data, use_preprocessed=True):
     # Ensure models directory exists
     os.makedirs('models', exist_ok=True)
     
+    # Load pre-trained models into a list
+    model_files = [
+        "models/CatBoost_best.pkl",
+        "models/GradientBoosting_best.pkl",
+        "models/RandomForest_best.pkl",
+        "models/XGBRegressor_best.pkl"
+    ]
+
+    loaded_models = [joblib.load(model_file) for model_file in model_files]
+
     # Define models
     models = {
-         'LightGBM': LGBMRegressor(
-            n_estimators=100,
-            learning_rate=0.05,  # Try a lower learning rate
-            num_leaves=31,
-            min_child_samples=30,  # Increase this value
-            min_child_weight=10,  # Add this parameter
-            subsample=0.8,  # Add subsampling
-            colsample_bytree=0.8,  # Add feature subsampling
-            reg_alpha=0.1,  # Add L1 regularization
-            reg_lambda=1.0,  # Add L2 regularization
-            random_state=42,
-            n_jobs=-1,
-
-        ),
         'XGBRegressor': XGBRegressor(
             n_estimators=500,
             max_depth=4,
@@ -86,12 +82,7 @@ def train(X_train_data, y_train_data, use_preprocessed=True):
             random_state=42
         ),
         'Stacking': StackingRegressor(
-            estimators=[
-                ('xgb', XGBRegressor(random_state=42)),
-                ('rf', RandomForestRegressor(random_state=42)),
-                ('lgbm', LGBMRegressor(random_state=42)),
-                ('gb', GradientBoostingRegressor(random_state=42))
-            ],
+            estimators=loaded_models
             final_estimator=Ridge(alpha=1.0),
             cv=5,
             passthrough=True,
@@ -107,16 +98,6 @@ def train(X_train_data, y_train_data, use_preprocessed=True):
             'max_features': ['sqrt'],                # Keep only winner ('sqrt')
             'min_samples_split': [2],                # Keep only winner (2)
             'min_samples_leaf': [1, 2]               # Keep winner (1) and test one close value
-        },
-        'LightGBM': {
-            'n_estimators': [100, 200],              # Conservative number of trees to avoid loops
-            'learning_rate': [0.05, 0.1],            # Standard rates that work well
-            'num_leaves': [15, 31],                  # 31 is default, 15 is more conservative
-            'min_child_samples': [5, 20],            # 20 is default, 5 allows more splits
-            'subsample': [0.7, 0.9],                 # Subsampling for robustness
-            'colsample_bytree': [0.7, 0.9],          # Feature subsampling
-            'reg_alpha': [0.1],                      # L1 regularization to prevent overfitting
-            'reg_lambda': [0.1],                     # L2 regularization to prevent overfitting                   # Allow splits with minimal gain
         },
         'GradientBoosting': {
             'n_estimators': [300, 400],              # Increase range: best value was at upper limit (300)
@@ -156,7 +137,6 @@ def train(X_train_data, y_train_data, use_preprocessed=True):
         
         
         if param_grid:
-            # Use RandomizedSearchCV for LightGBM to speed up the process
            
             search = GridSearchCV(
                 estimator=model,
